@@ -97,7 +97,24 @@ bget(uint dev, uint blockno)
  */
 void
 write_page_to_disk(uint dev, char *pg, uint blk)
-{
+{ 
+
+  struct buf *b[8];
+
+  for (int i = 0; i < 8; ++i) {
+    b[i] = bget(dev, blk+i);
+
+   //Manually copying data into the struc of buffers
+    int index;
+    for (index = 0; index < 512; index++) {
+      b[i] -> data[index] = pg[(i*512) + index];
+    }
+
+    bwrite(b[i]);
+    brelse(b[i]);
+
+  }
+
 }
 
 /* Read 4096 bytes from the eight consecutive
@@ -106,6 +123,30 @@ write_page_to_disk(uint dev, char *pg, uint blk)
 void
 read_page_from_disk(uint dev, char *pg, uint blk)
 {
+
+  struct buf *b[8];
+  int offset = 0;
+
+  for (int i = 0; i < 8; i++) {
+    
+    // Read a blovk of data from the memory to the buffer b[i]
+    b[i] = bread(ROOTDEV, blk + i);
+
+   // Copy b[i] -> data into pg page
+    int index;
+    for (index = 0; index < 512; index++) {
+        pg[(i*512) + index] = b[i] -> data[index];
+    }
+
+    // memmove(pg + offset, b[i] -> data, 512);
+
+    offset += BSIZE;   
+
+    // Release the lock taken by the bread
+    brelse(b[i]);
+
+  } 
+
 }
 
 // Return a locked buf with the contents of the indicated block.

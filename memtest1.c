@@ -35,6 +35,7 @@ mem(void)
 			goto failed;
 		*(char**)m1 = m2;
 		((int*)m1)[2] = count++;
+		// printf(1,"%d\n", count);
 		m1 = m2;
 		cur += 4096;
 	}
@@ -43,6 +44,9 @@ mem(void)
 
 	count = 0;
 	m1 = start;
+
+	// printf(1,"\n\n\n DONE\n\n");
+
 
 	while (count != total_count) {
 		if (((int*)m1)[2] != count)

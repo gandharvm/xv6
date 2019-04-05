@@ -51,10 +51,15 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
     // The permissions here are overly generous, but they can
     // be further restricted by the permissions in the page table
     // entries, if necessary.
+
+    // cprintf("New Page allocated! \n");
+
     *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;
   }
   return &pgtab[PTX(va)];
 }
+
+
 
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
@@ -70,14 +75,18 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
   for(;;){
     if((pte = walkpgdir(pgdir, a, 1)) == 0)
       return -1;
-    if(*pte & PTE_P)
+    if(*pte & PTE_P){
+      cprintf("PTE Entry before panic : %x\n", *pte);
       panic("remap");
+
+    }
     *pte = pa | perm | PTE_P;
     if(a == last)
       break;
     a += PGSIZE;
     pa += PGSIZE;
   }
+
   return 0;
 }
 
@@ -236,12 +245,24 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
   for(; a < newsz; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
-      //cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, newsz, oldsz);
-      return 0;
+
+      // cprintf("Before swap\n");
+      swap_page(pgdir);
+      // cprintf("Swap complete\n");
+
+      mem = kalloc();
+
+      if (mem == 0)
+      {
+        panic("2nd kalloc failed \n");
+      }
+      // deallocuvm(pgdir, newsz, oldsz);
+      // return 0;
     }
+
     memset(mem, 0, PGSIZE);
-    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+
+    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem),PTE_W|PTE_U) < 0){
       //cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, newsz, oldsz);
       kfree(mem);
@@ -270,12 +291,17 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     pte = walkpgdir(pgdir, (char*)a, 0);
     if(!pte)
       a = PGADDR(PDX(a) + 1, 0, 0) - PGSIZE;
-    else if((*pte & PTE_P) != 0){
+    else if((*pte & PTE_P) != 0 ){
       pa = PTE_ADDR(*pte);
       if(pa == 0)
         panic("kfree");
       char *v = P2V(pa);
       kfree(v);
+      *pte = 0;
+    }
+    else if ((*pte & PTE_SWP) != 0){
+      uint BLK = getswappedblk(pgdir,a);
+      bfree_page(ROOTDEV,BLK);
       *pte = 0;
     }
   }
@@ -307,20 +333,88 @@ freevm(pde_t *pgdir)
 pte_t*
 select_a_victim(pde_t *pgdir)
 {
-	return 0;
+
+  uint flag;
+  uint i;
+  flag = 0;
+
+  while(1){
+	  // Loop through all the pages from 0 to KERNBASE
+	  for (i = 0; i <KERNBASE; i += PGSIZE)
+	  {
+	     flag=0;
+	     pte_t *ptentry = uva2pte(pgdir, i);
+
+	      // Find the page whose access bit is not set
+        if((ptentry != 0)&& ((*ptentry & PTE_P)!=0) && ((*ptentry & PTE_SWP)==0) && ((*ptentry & PTE_A)==0) && ((*ptentry & PTE_U)!=0)){
+
+	          flag = 1;
+	          *ptentry = *ptentry | PTE_A;
+
+	          return ptentry;
+	      }
+
+	  }
+
+
+
+	  if(flag == 0){
+	      // Reset the access bit randomly
+	      clearaccessbit(pgdir);
+
+	  }
+  }
 }
+
 
 // Clear access bit of a random pte.
 void
 clearaccessbit(pde_t *pgdir)
-{
+{   
+  uint i;
+  int counter = 0;
+
+
+    // Looping until we find a valid page
+    for (i = 0; i < KERNBASE ; i += PGSIZE){
+
+    // Getting the required "random" page table entry
+    pte_t *ptentry = uva2pte(pgdir, i);
+
+    if((ptentry!=0) && ((*ptentry & PTE_P)!=0) && ((*ptentry & PTE_SWP)==0) && ((*ptentry & PTE_U)!=0)){
+      // Resetting access bit
+      *ptentry = *ptentry & ~PTE_A;
+
+      counter += 1;
+
+      if(counter > 20) {
+        break;
+      }
+    }
+  }
+
 }
 
 // return the disk block-id, if the virtual address
 // was swapped, -1 otherwise.
 int
 getswappedblk(pde_t *pgdir, uint va)
-{
+{ 
+
+  // Get the PTE corresponding to VA
+  pte_t *ptentry = uva2pte(pgdir, va);
+
+
+  // If the PTE is not present
+  if((*ptentry & PTE_SWP)){
+    *ptentry = *ptentry & ~PTE_SWP;
+    // return PTE_ADDR(*ptentry) >> 12;
+    int value = *ptentry >> 12;
+    *ptentry = 0;
+
+    return value;
+  } 
+
   return -1;
 }
 

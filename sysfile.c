@@ -16,6 +16,7 @@
 #include "file.h"
 #include "fcntl.h"
 #include "paging.h"
+#include "x86.h"
 
 extern int numallocblocks;
 
@@ -464,6 +465,17 @@ sys_swap(void)
 
   if(argint(0, (int*)&addr) < 0)
     return -1;
+  
   // swap addr
+  
+  // Findout the pte corresponding to the va
+  //pte_t *ptentry = uva2pte(kpgdir, addr);
+
+  // Allocates disk block and swaps the pte
+  //swap_page_from_pte(ptentry);
+
+  // Invalidate the TLB 
+  // invlpg((void *)addr); 
+
   return 0;
 }

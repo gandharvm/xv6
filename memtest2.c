@@ -50,6 +50,7 @@ mem(void)
 			goto failed;
 		m1 = *(char**)m1;
 		count++;
+		printf(1,"%d\n", count);
 	}
 
 	if (swap(start) != 0)

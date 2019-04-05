@@ -22,6 +22,8 @@
 #include "file.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
+
+
 static void itrunc(struct inode*);
 // there should be one superblock per disk device, but we run with
 // only one device
@@ -47,7 +49,7 @@ bzero(int dev, int bno)
 
   bp = bread(dev, bno);
   memset(bp->data, 0, BSIZE);
-  log_write(bp);
+  bwrite(bp);
   brelse(bp);
 }
 
@@ -67,7 +69,7 @@ balloc(uint dev)
       m = 1 << (bi % 8);
       if((bp->data[bi/8] & m) == 0){  // Is block free?
         bp->data[bi/8] |= m;  // Mark block in use.
-        log_write(bp);
+        bwrite(bp);
         brelse(bp);
         bzero(dev, b + bi);
         return b + bi;
@@ -85,15 +87,58 @@ balloc(uint dev)
 uint
 balloc_page(uint dev)
 {
-	return -1;
+
+  int b, bi, m, flag, mover;
+  struct buf *bp;
+
+  bp = 0;
+  for(b = 0; b < sb.size; b += BPB){
+    bp = bread(dev, BBLOCK(b, sb));
+    for(bi = 0; bi < BPB && b + bi < sb.size; bi++){
+      
+      flag = 0;
+      mover = bi;
+      for(int i=0; i<8; i++){
+        m = 1 << (mover % 8);
+        if((bp->data[mover/8] & m) == 0){  // Is block free?
+
+            flag += 1;
+            mover += 1;
+        } else {
+            break;
+        }
+      }
+
+
+
+      if(flag == 8){
+        mover = bi;
+        // cprintf("8 consecutive blocks found\n");
+        // cprintf("Block num:?? %d\n",b+bi);
+        for(int i=0; i<8; i++){
+          m = 1 << (mover % 8);
+
+          bp->data[mover/8] |= m;  // Mark block in use.
+          
+          bwrite(bp);
+          
+          bzero(dev, b + mover);
+          
+          mover += 1;
+
+        }
+        brelse(bp);
+        return b + bi;
+      }
+
+      flag = 0;
+    }
+    brelse(bp);
+  }
+  panic("balloc pages : out of blocks");
 }
 
-/* Free disk blocks allocated using balloc_page.
- */
-void
-bfree_page(int dev, uint b)
-{
-}
+
 
 // Free a disk block.
 static void
@@ -109,8 +154,19 @@ bfree(int dev, uint b)
   if((bp->data[bi/8] & m) == 0)
     panic("freeing free block");
   bp->data[bi/8] &= ~m;
-  log_write(bp);
+  bwrite(bp);
   brelse(bp);
+}
+
+/* Free disk blocks allocated using balloc_page.
+ */
+
+void
+bfree_page(int dev, uint b)
+{
+  for(uint bi=0;bi<8;bi++){
+    bfree(dev,b+bi);
+  }
 }
 
 // Inodes.

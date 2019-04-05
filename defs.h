@@ -15,6 +15,7 @@ void            binit(void);
 struct buf*     bread(uint, uint);
 void            brelse(struct buf*);
 void            bwrite(struct buf*);
+void            write_page_to_disk(uint dev, char *pg, uint blk);
 
 // console.c
 void            consoleinit(void);
@@ -52,6 +53,8 @@ struct inode*   nameiparent(char*, char*);
 int             readi(struct inode*, char*, uint, uint);
 void            stati(struct inode*, struct stat*);
 int             writei(struct inode*, char*, uint, uint);
+uint            balloc_page(uint dev);
+
 
 // ide.c
 void            ideinit(void);
@@ -185,6 +188,8 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+int             mapppages(pde_t *pgdir, void* va, uint size, uint pa, int perm);
+pte_t*          select_a_victim(pde_t *pgdir);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

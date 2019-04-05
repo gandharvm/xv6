@@ -24,6 +24,7 @@ outb(ushort port, uchar data)
   asm volatile("out %0,%1" : : "a" (data), "d" (port));
 }
 
+
 static inline void
 outw(ushort port, ushort data)
 {
@@ -142,6 +143,13 @@ static inline void
 lcr3(uint val)
 {
   asm volatile("movl %0,%%cr3" : : "r" (val));
+}
+
+// TLB invalidator, added by us. Reference: https://stackoverflow.com/questions/37752664/how-to-use-invlpg-on-x86-64-architecture
+// and reference : https://courses.cs.washington.edu/courses/csep551/17wi/l02.pdf
+static inline void 
+invlpg(void *addr){
+   asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
 }
 
 //PAGEBREAK: 36
