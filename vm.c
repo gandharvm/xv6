@@ -348,10 +348,10 @@ select_a_victim(pde_t *pgdir)
 	      // Find the page whose access bit is not set
         if((ptentry != 0)&& ((*ptentry & PTE_P)!=0) && ((*ptentry & PTE_SWP)==0) && ((*ptentry & PTE_A)==0) && ((*ptentry & PTE_U)!=0)){
 
-	          flag = 1;
-	          *ptentry = *ptentry | PTE_A;
+          flag = 1;
+          *ptentry = *ptentry | PTE_A;
 
-	          return ptentry;
+          return ptentry;
 	      }
 
 	  }
@@ -447,13 +447,23 @@ copyuvm(pde_t *pgdir, uint sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
       panic("copyuvm: pte should exist");
-    if(!(*pte & PTE_P))
+    if(!(*pte & PTE_P) && !(*pte & PTE_SWP))
       panic("copyuvm: page not present");
+    
+    if (*pte & PTE_SWP) {
+  		map_address(pgdir,i);
+  	}
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto bad;
-
+    
+    if((mem = kalloc()) == 0){
+      swap_page(pgdir);
+  	  mem = kalloc();
+  	  if (mem == 0) {
+  	  	// cprintf("bad\n");
+  	  	goto bad;
+  	  }
+	}
     memmove(mem, (char*)P2V(pa), PGSIZE);
     if(mappages(d, (void*)i, PGSIZE, V2P(mem), flags) < 0)
       goto bad;

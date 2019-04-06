@@ -128,6 +128,7 @@ balloc_page(uint dev)
 
         }
         brelse(bp);
+        numallocblocks++;
         return b + bi;
       }
 
@@ -167,6 +168,7 @@ bfree_page(int dev, uint b)
   for(uint bi=0;bi<8;bi++){
     bfree(dev,b+bi);
   }
+  numallocblocks--;
 }
 
 // Inodes.

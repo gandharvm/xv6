@@ -462,20 +462,27 @@ int
 sys_swap(void)
 {
   uint addr;
+  struct proc *curproc = myproc();
+  struct sleeplock *loc = 0;
+  pde_t *kpgdir= curproc -> pgdir;
 
   if(argint(0, (int*)&addr) < 0)
     return -1;
-  
-  // swap addr
-  
-  // Findout the pte corresponding to the va
-  //pte_t *ptentry = uva2pte(kpgdir, addr);
 
+  //cprintf("Addr = %x\n",addr);
+  
+  initsleeplock(loc,(char*)kpgdir);
+  // Findout the pte corresponding to the va
+  acquiresleep(loc);
+  pte_t *ptentry = uva2pte(kpgdir, addr);
+
+  //cprintf("ptentry: %x\n",*ptentry);
   // Allocates disk block and swaps the pte
-  //swap_page_from_pte(ptentry);
+  swap_page_from_pte(ptentry);
 
   // Invalidate the TLB 
-  // invlpg((void *)addr); 
+  invlpg((void *)addr); 
 
+  releasesleep(loc);
   return 0;
 }

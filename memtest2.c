@@ -50,11 +50,16 @@ mem(void)
 			goto failed;
 		m1 = *(char**)m1;
 		count++;
-		printf(1,"%d\n", count);
 	}
+
+	// printf(1,"start = %x\n",start);
+
 
 	if (swap(start) != 0)
 		printf(1, "failed to swap %p\n", start);
+
+  	// printf(1,"Hello\n");
+
 
 	pid = fork();
 
@@ -63,8 +68,10 @@ mem(void)
 		m1 = start;
 	
 		while (count != total_count) {
-			if (((int*)m1)[2] != count)
+			if (((int*)m1)[2] != count){
+				// printf(1,"Before last goto\n");
 				goto failed;
+			}
 			m1 = *(char**)m1;
 			count++;
 		}

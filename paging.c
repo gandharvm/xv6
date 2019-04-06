@@ -10,7 +10,7 @@
 #include "paging.h"
 #include "fs.h"
 
-
+// extern int numallocblocks;
 
 /* Allocate eight consecutive disk blocks.
  * Save the content of the physical page in the pte
@@ -47,7 +47,7 @@ swap_page_from_pte(pte_t *pte)
 
 	// cprintf("Bit after : %x\n", *pte & PTE_P);
 
-
+	// numallocblocks++;
 
 }
 
@@ -91,7 +91,6 @@ map_address(pde_t *pgdir, uint addr)
 		char *pg = P2V(PTE_ADDR(*ptentry));
 		read_page_from_disk(ROOTDEV,pg,blk);
 		bfree_page(ROOTDEV,blk);
-		
 	}
 }
 
